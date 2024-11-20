@@ -1,0 +1,52 @@
+syntax = "proto3";
+package v0.api.plugin;
+
+message Server {
+    enum PluginApi {
+        ACTIVATE = 0;
+        DEACTIVATE = 1;
+        START_PROCESSING = 2;
+        STOP_PROCESSING = 3;
+        RESET = 4;
+    }
+    message Args {
+        oneof args {
+            Descriptor description = 1;
+            Activate activate = 2;
+        }
+    }
+    PluginApi plugin_api = 1;
+    optional Args args = 2;
+}
+
+message Client {
+    enum Request {
+        DESCRIPTOR = 0;
+    }
+    Request request = 1;
+}
+
+message ClapVersion {
+    uint32 major = 1;
+    uint32 minor = 2;
+    uint32 revision = 3;
+}
+
+message Descriptor {
+    ClapVersion clap_version = 1;
+    string id = 2;
+    string name = 3;
+    string vendor = 4;
+    string url = 5;
+    string manual_url = 6;
+    string support_url = 7;
+    string version = 8;
+    string description = 9;
+    repeated string features = 10;
+}
+
+message Activate {
+    double sample_rate = 1;
+    uint32 min_frames_count = 2;
+    uint32 max_frames_count = 3;
+}

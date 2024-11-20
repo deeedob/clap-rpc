@@ -1,5 +1,0 @@
-add_test_executable(tst_descriptor DEPENDENCIES clap::rci)
-add_test_executable(tst_registry DEPENDENCIES clap::rci)
-add_test_executable(tst_server DEPENDENCIES clap::rci)
-add_test_executable(tst_mpmcqueue DEPENDENCIES clap::rci)
-add_test_executable(tst_coreplugin DEPENDENCIES clap::rci)

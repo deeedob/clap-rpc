@@ -1,0 +1,32 @@
+syntax = "proto3";
+package v0.api;
+
+// import "google/protobuf/any.proto";
+import public "plugin.proto";
+import public "events.proto";
+import public "host.proto";
+import public "gui.proto";
+
+service ClapService {
+  rpc EventStream(stream ClientMessage) returns (stream ServerMessage) {}
+}
+
+message ClientMessage {
+  oneof data {
+    // google.protobuf.Any custom = 1;
+    plugin.Client plugin = 2;
+    events.Client events = 3;
+    host.Client host = 4;
+    gui.Client gui = 5;
+  }
+}
+
+message ServerMessage {
+  oneof data {
+    // google.protobuf.Any custom = 1;
+    plugin.Server plugin = 2;
+    events.Server events = 3;
+    host.Server host = 4;
+    gui.Server gui = 5;
+  }
+}

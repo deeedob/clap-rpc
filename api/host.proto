@@ -1,0 +1,22 @@
+syntax = "proto3";
+package v0.api.host;
+
+message Server {
+    Host host = 1;
+}
+
+message Client {
+    enum Request {
+        RESTART = 0;
+        PROCESS = 1;
+        CALLBACK = 2;
+    }
+    Request request = 1;
+}
+
+message Host {
+    string name = 1;
+    string vendor = 2;
+    string url = 3;
+    string version = 4;
+}

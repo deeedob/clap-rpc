@@ -1,0 +1,82 @@
+syntax = "proto3";
+package v0.api.gui;
+
+message Server {
+    enum Api {
+        // Common
+        CREATE = 0;
+        DESTROY = 1;
+        SET_SCALE = 2;
+        GET_SIZE = 3;
+        SHOW = 4;
+        HIDE = 5;
+        // Embedded Window
+        CAN_RESIZE = 6;
+        GET_RESIZE_HINTS = 7;
+        ADJUST_SIZE = 8;
+        SET_SIZE = 9;
+        SET_PARENT = 10;
+        // Floating Window
+        SET_TRANSIENT = 11;
+        SUGGEST_TITLE = 12;
+    }
+    message Arg {
+      oneof arg {
+        double scale = 1;
+        Size size = 2;
+        ResizeHints hints = 3;
+        ClapWindow clap_window = 4;
+        string title = 5;
+      }
+    }
+    Api api = 1;
+    optional Arg arg = 2;
+}
+
+message Client {
+    enum Api {
+        GUI_CONNECT = 0;
+
+        RESIZE_HINTS_CHANGED = 1;
+        REQUEST_RESIZE = 2;
+        REQUEST_SHOW = 3;
+        REQUEST_HIDE = 4;
+        CLOSED = 5;
+    }
+    message Arg {
+      oneof arg {
+        Size size = 1;
+        bool was_destroyed = 2;
+      }
+    }
+
+    Api api = 1;
+    optional Arg arg = 2;
+}
+
+message ResizeHints {
+  bool can_resize_horizontally = 1;
+  bool can_resize_vertically = 2;
+
+  // only if can resize horizontally and vertically
+  message AspectRatio {
+    bool preserve = 1;
+    Size size = 2;
+  }
+  optional AspectRatio aspect_ratio = 3;
+}
+
+message ClapWindow {
+  string api = 1;
+  oneof window {
+    uint64 cocoa = 2;
+    uint64 x11 = 3;
+    uint64 win32 = 4;
+    uint64 ptr = 5;
+  }
+}
+
+message Size {
+  uint32 width = 1;
+  uint32 height = 2;
+}

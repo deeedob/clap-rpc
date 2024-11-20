@@ -3,7 +3,10 @@ function(util_list_newline out list)
     if(ARGN)
         util_list_newline(${out} ${ARGN})
     endif()
-    set(${out} "${list}\n${${out}}" PARENT_SCOPE)
+    set(${out}
+        "${list}\n${${out}}"
+        PARENT_SCOPE
+    )
 endfunction()
 
 # Returns a new list @out that is appended with @delim
@@ -12,14 +15,20 @@ function(util_list_delimiter out delim)
     math(EXPR N "${ARGC}-1")
     # check if the list is smaller than 3
     if(N LESS 3)
-        set(${out} "${temp}" PARENT_SCOPE)
+        set(${out}
+            "${temp}"
+            PARENT_SCOPE
+        )
         return()
     endif()
     foreach(IDX RANGE 3 ${N})
         list(GET ARGV ${IDX} STR)
         set(temp "${temp}${delim}${STR}")
     endforeach()
-    set(${out} "${temp}" PARENT_SCOPE)
+    set(${out}
+        "${temp}"
+        PARENT_SCOPE
+    )
 endfunction()
 
 # Function to add tests
@@ -33,7 +42,13 @@ function(add_test_executable name)
     set(flags)
     set(args)
     set(listArgs DEPENDENCIES)
-    cmake_parse_arguments(arg "${flags}" "${args}" "${listArgs}" ${ARGN})
+    cmake_parse_arguments(
+        arg
+        "${flags}"
+        "${args}"
+        "${listArgs}"
+        ${ARGN}
+    )
 
     # Optional libraries to link against (if provided)
     if(arg_DEPENDENCIES)
@@ -41,51 +56,6 @@ function(add_test_executable name)
         add_dependencies(${name} ${arg_DEPENDENCIES})
     endif()
     catch_discover_tests(${name})
-endfunction()
-
-function(initialize_proto_target target api_path)
-    find_package(Protobuf CONFIG REQUIRED)
-    find_package(gRPC CONFIG REQUIRED)
-
-    cmake_path(GET api_path PARENT_PATH api_include)
-
-    set(clap-rci_PROTO ${api_path})
-    set(clap-rci_PROTO_INCLUDE ${api_include})
-    set(clap-rci_PROTO_OUT "${CMAKE_CURRENT_BINARY_DIR}/include/clap-rci/gen")
-    set(clap-rci_PROTO_OUT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/include")
-
-    # TODO: include private
-    add_library(${target}-proto OBJECT "${clap-rci_PROTO}")
-    target_include_directories(${target}-proto PUBLIC "$<BUILD_INTERFACE:${clap-rci_PROTO_OUT_INCLUDE}>")
-    target_link_libraries(${target}-proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
-
-    # https://github.com/protocolbuffers/protobuf/blob/main/docs/cmake_protobuf_generate.md
-    protobuf_generate(
-        TARGET ${target}-proto IMPORT_DIRS "${clap-rci_PROTO_INCLUDE}" PROTOC_OUT_DIR
-        "${clap-rci_PROTO_OUT}"
-    )
-
-    protobuf_generate(
-        TARGET
-        ${target}-proto
-        LANGUAGE
-        grpc
-        GENERATE_EXTENSIONS
-        .grpc.pb.h
-        .grpc.pb.cc
-        PLUGIN
-        "protoc-gen-grpc=\$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
-        IMPORT_DIRS
-        ${clap-rci_PROTO_INCLUDE}
-        PROTOC_OUT_DIR
-        ${clap-rci_PROTO_OUT}
-    )
-    set(generated_files ${clap-rci_PROTO_OUT}/api.grpc.pb.cc ${clap-rci_PROTO_OUT}/api.grpc.pb.h
-                        ${clap-rci_PROTO_OUT}/api.pb.cc ${clap-rci_PROTO_OUT}/api.pb.h
-    )
-    set_source_files_properties(${generated_files} PROPERTIES GENERATED TRUE)
-    set_property(SOURCE ${generated_files} PROPERTY SKIP_AUTOGEN ON)
-
 endfunction()
 
 function(print_target_info target_name)
@@ -96,9 +66,13 @@ function(print_target_info target_name)
     get_target_property(target_sources ${target_name} SOURCES)
     get_target_property(target_include_dirs ${target_name} INCLUDE_DIRECTORIES)
     get_target_property(target_compile_options ${target_name} COMPILE_OPTIONS)
-    get_target_property(target_compile_definitions ${target_name} COMPILE_DEFINITIONS)
+    get_target_property(
+        target_compile_definitions ${target_name} COMPILE_DEFINITIONS
+    )
     get_target_property(target_link_libraries ${target_name} LINK_LIBRARIES)
-    get_target_property(target_dependencies ${target_name} INTERFACE_LINK_LIBRARIES)
+    get_target_property(
+        target_dependencies ${target_name} INTERFACE_LINK_LIBRARIES
+    )
 
     # Print target information
     message(STATUS "Target Type: ${target_type}")

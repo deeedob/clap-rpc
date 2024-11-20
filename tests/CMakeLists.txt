@@ -1,11 +1,19 @@
-if (clap-rci_BUILD_AUTO_TESTS)
-    find_package(Catch2 3 REQUIRED)
-    include(CTest)
-    include(Catch)
-    add_subdirectory(auto/)
-endif ()
+find_package(Catch2 3 QUIET)
 
-if (clap-rci_BUILD_MAN_TESTS)
-    include(../cmake/clap_autolink.cmake)
-    add_subdirectory(man/)
-endif ()
+if (NOT Catch2_FOUND)
+    include(FetchContent)
+    message(STATUS "Catch2 not found, fetching it now...")
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG v3.4.0
+    )
+    FetchContent_MakeAvailable(Catch2)
+    list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras) # ctest
+endif()
+
+include(CTest)
+include(Catch)
+
+add_test_executable(tst_server DEPENDENCIES clap::rpc)
+add_test_executable(tst_executable DEPENDENCIES clap::rpc::tools)
