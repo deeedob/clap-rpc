@@ -9,21 +9,12 @@ Easily add **R**emote **P**rocedure **C**all(s) to your
 
 ## Motivation
 
-I wanted a fast and reliable way to communicate with out-of-process elements.
-With this, not only can the GUI be moved to a separate process, but we can also
-freely communicate with 'clients' in any way we want. These clients could be a
-CLI app, a mobile app, an embedded device—you name it. And the best is that
-there is native support for a [multitude of programming
-languages](https://grpc.io/docs/languages/). Multiple connections to the same
-plugin? Communication between separate plugins? All of this is possible!
-
-I wanted a fast and reliable way to communicate with out-of-process elements.
-With this, not only can the GUI be moved to a separate process, but we can also
-freely communicate with 'clients' in any way we want. These clients could be a
-CLI app, a mobile app, an embedded device — you name it. And the best part is that
-there is native support for [many programming languages](https://grpc.io/docs/languages/).
-Multiple connections to the same plugin? Communication between separate plugins?
-All of this is possible!
+I wanted a fast and reliable way to enable out-of-process communication for
+plugins. This setup allows any executable to connect as a client and start
+interacting with the plugin — whether on the same machine or over a private
+network. It provides the flexibility to communicate freely with these clients,
+which can be written in any of the many [supported
+languages](https://grpc.io/docs/languages/)
 
 ## Introduction
 
@@ -35,7 +26,7 @@ the CLAP bundle. The server runs on the plugin side and should be shared across
 plugin instances.
 
 
-## API Example
+### API Example
 
 ```cpp
 #include <clap-rpc/server.hpp>
@@ -48,7 +39,7 @@ Plugin::Plugin(const clap_host *host)
     ++PluginCount;
     if (!Server) // Share the server across plugin instances within the same process
         Server = std::make_unique<clap::rpc::Server>("localhost:50552");
-    mStreamHandler = Server->createStreamHandler();
+    mStreamHandler = Server->createStreamHandler(); // access streams
 }
 Plugin::~Plugin()
 {
