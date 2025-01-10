@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Dennis Oberst <dennis.ob@protonmail.com>
+
 cmake_minimum_required(VERSION 3.27)
 
 project(
@@ -138,7 +141,11 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/clap-rpc-config-version.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/clap-rpc
 )
+
 export(EXPORT clap-rpc-config
     NAMESPACE clap::
     FILE ${CMAKE_BINARY_DIR}/clap-rpc-config.cmake
 )
+
+# Provide the clap_symlink command to direct users of this library
+include(cmake/clap_symlink.cmake)

@@ -10,11 +10,11 @@ Easily add **R**emote **P**rocedure **C**all(s) to your
 ## Motivation
 
 I wanted a fast and reliable way to enable out-of-process communication for
-plugins. This setup allows any executable to connect as a client and start
-interacting with the plugin — whether on the same machine or over a private
-network. It provides the flexibility to communicate freely with these clients,
-which can be written in any of the many [supported
-languages](https://grpc.io/docs/languages/)
+plugins. This library allows any client to connect and start interacting with
+the plugin, whether on the same machine or over a private network. It provides
+an efficient and flexible way for bidirectional communication between a
+plugin instance and its clients, which can be written in any of the [supported
+client-languages](https://grpc.io/docs/languages/)
 
 ## Introduction
 

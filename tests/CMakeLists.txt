@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Dennis Oberst <dennis.ob@protonmail.com>
+
 find_package(Catch2 3 QUIET)
 
 if (NOT Catch2_FOUND)

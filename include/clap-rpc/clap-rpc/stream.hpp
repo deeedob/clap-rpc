@@ -1,5 +1,7 @@
-#pragma once
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2025 Dennis Oberst <dennis.ob@protonmail.com>
 
+#pragma once
 
 #include <clap-rpc/api/clapservice.pb.h>
 #include <clap-rpc/global.hpp>

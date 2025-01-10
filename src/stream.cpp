@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2025 Dennis Oberst <dennis.ob@protonmail.com>
+
 #include "logging.h"
 
 #include <clap-rpc/stream.hpp>

@@ -1,6 +1,8 @@
-# https://github.com/protocolbuffers/protobuf/blob/main/docs/cmake_protobuf_generate.md
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Dennis Oberst <dennis.ob@protonmail.com>
 
 function(initialize_proto target)
+    # https://github.com/protocolbuffers/protobuf/blob/main/docs/cmake_protobuf_generate.md
 
     cmake_parse_arguments(args "" "IMPORT_DIR" "PROTO;GRPC" ${ARGN})
     if(NOT args_IMPORT_DIR)
