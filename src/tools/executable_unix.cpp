@@ -1,5 +1,7 @@
 #include "executable.hxx"
 
+#include <cstring>
+#include <format>
 #include <iostream>
 
 #include <cerrno>

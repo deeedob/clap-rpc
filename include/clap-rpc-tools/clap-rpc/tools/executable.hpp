@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 CLAP_RPC_BEGIN_NAMESPACE
 

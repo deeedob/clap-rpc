@@ -1,3 +1,5 @@
+#include "logging.h"
+
 #include <clap-rpc/stream.hpp>
 
 #include <grpcpp/server_context.h>
@@ -33,10 +35,10 @@ void Stream::Cancel() const
 
 void Stream::OnDone()
 {
-    // destroys this object
-    if (mHandler) {
+    Log(INFO, "stream done: {}", (void *) this);
+    if (mHandler) { // in case of early Finish
         if (!mHandler->disconnect(this))
-            std::cout << std::format("Failed to disconnect\n", (void *) this);
+            Log(ERROR, "Failed to disconnect: {}", (void *) this);
     } else {
         delete this;
     }
@@ -57,7 +59,7 @@ void Stream::OnReadDone(bool ok)
     }
     if (!mHandler->mOnReadCallback(*this))
         mHandler->mClientQueue.push(std::move(mClientMessage));
-    this->StartRead(&mClientMessage);
+    StartRead(&mClientMessage);
 }
 
 void Stream::OnWriteDone(bool ok)
@@ -72,7 +74,6 @@ void Stream::OnWriteDone(bool ok)
     if (!mServerBuffer.empty()) {
         mServerMessage = std::move(mServerBuffer.front());
         mServerBuffer.pop();
-        std::cout << std::format("Write from response buffer, size {}\n", mServerBuffer.size());
         StartWrite(mServerMessage.get());
         return;
     }

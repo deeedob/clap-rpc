@@ -6,8 +6,8 @@
 
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <set>
+#include <shared_mutex>
 
 CLAP_RPC_BEGIN_NAMESPACE
 
@@ -20,6 +20,8 @@ class StreamHandler : public std::enable_shared_from_this<StreamHandler>
     using ServerQueue = MpMcQueue<api::ServerMessage, 256>;
 
 public:
+    using OnReadCallback = std::function<bool(const Stream &)>;
+
     ~StreamHandler();
     // TODO: SMFs
 
@@ -31,13 +33,14 @@ public:
     {
         return mStreams.size();
     }
-    void cancelAll();
+    void cancelAll() const;
+
+    void setInterceptor(std::function<bool(const Stream &)> &&callback);
 
     void pushMessage(api::ServerMessage &&response);
     void pushMessage(const api::ServerMessage &response);
-    void writeMessage(api::ServerMessage &&message);
+    void broadcast(api::ServerMessage &&message);
 
-    void setOnReadCallback(std::function<bool(const Stream &)> &&callback);
     bool tryPop(api::ClientMessage *message);
     api::ClientMessage pop();
 
@@ -49,11 +52,11 @@ private:
 private:
     uint64_t mId = 0;
     std::set<std::unique_ptr<Stream>> mStreams;
-    std::mutex mStreamMtx;
+    mutable std::shared_mutex mSharedStreamsMtx;
 
     ClientQueue mClientQueue;
     ServerQueue mServerQueue;
-    std::function<bool(const Stream &)> mOnReadCallback;
+    OnReadCallback mOnReadCallback;
 
     Server *mServer;
 

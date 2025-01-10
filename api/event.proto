@@ -1,5 +1,5 @@
 syntax = "proto3";
-package v0.api.events;
+package v0.api.event;
 
 message Server {
     EventMessage event = 1;
@@ -24,7 +24,7 @@ message Client {
 }
 
 message EventMessage {
-    enum Event {
+    enum Type {
         NOTE = 0;
         NOTE_EXPRESSION = 1;
         PARAMETER = 2;
@@ -32,7 +32,7 @@ message EventMessage {
         MIDI = 4;
         TRANSPORT = 5;
     }
-    Event event = 1;
+    Type type = 1;
     uint32 flags = 2;
     oneof data {
         Note note = 3;
@@ -74,7 +74,7 @@ message NoteExpression {
     Type type = 1;
     double value = 6;
 
-    int32 note_id = 2;
+    int32 snote_id = 2;
     int32 port_index = 3;
     int32 channel = 4;
     int32 key = 5;

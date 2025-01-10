@@ -11,7 +11,7 @@ class TransportWatcher
 {
 public:
     TransportWatcher()
-        : mRef(mResponse.mutable_events()->mutable_event()->mutable_transport())
+        : mRef(mResponse.mutable_event()->mutable_event()->mutable_transport())
     {
     }
 
@@ -43,7 +43,7 @@ public:
 private:
     std::atomic<bool> mEnabled = false;
     api::ServerMessage mResponse;
-    api::events::Transport *mRef;
+    api::event::Transport *mRef;
 };
 
 inline bool TransportWatcher::update(const clap_event_transport *other)

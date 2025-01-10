@@ -35,6 +35,7 @@ protected:
 
 private:
     api::ClientMessage mClientMessage;
+
     std::shared_ptr<api::ServerMessage> mServerMessage;
     std::queue<std::shared_ptr<api::ServerMessage>> mServerBuffer;
     std::atomic<bool> mIsWriting = false;

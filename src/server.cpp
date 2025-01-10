@@ -1,18 +1,25 @@
+#include "logging.h"
+
 #include <clap-rpc/api/clapservice.grpc.pb.h>
 #include <clap-rpc/api/clapservice.pb.h>
 #include <clap-rpc/server.hpp>
 #include <clap-rpc/stream.hpp>
 
+#include <google/protobuf/message.h>
+#include <grpc/support/time.h>
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
 
 #include <algorithm>
 #include <condition_variable>
-#include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 
 CLAP_RPC_BEGIN_NAMESPACE
+
+using namespace std::chrono_literals;
 
 namespace {
 uint64_t toHash(const void *ptr)
@@ -33,40 +40,41 @@ public:
     {
         assert(startWorker() && "Couldn't start worker");
     }
-
-    void shutdown()
+    ~ClapService() override
     {
         stopWorker();
-        for (const auto &handler : mActiveHandlers)
-            handler.second.lock()->cancelAll();
-        mActiveHandlers.clear();
     }
+
+    ClapService(const ClapService &) = delete;
+    ClapService &operator=(const ClapService &) = delete;
+
+    ClapService(ClapService &&) = delete;
+    ClapService &operator=(ClapService &&) = delete;
 
     std::shared_ptr<StreamHandler> createStreamHandler(Server *server)
     {
-        std::shared_ptr<StreamHandler> handler(new StreamHandler(server),
-            [this](StreamHandler *ptr) {
-                const auto it = std::ranges::find_if(mActiveHandlers, [ptr](const auto &v) {
-                    const auto shared = v.second.lock();
-                    if (!shared)
-                        return true;
-                    if (shared.get() == ptr)
-                        return true;
-                    return false;
-                });
-                if (it != mActiveHandlers.end()) {
-                    std::unique_lock<std::mutex> lock(mActiveHandlersMtx);
-                    std::cerr << std::format("erasing leftover handler with id: {}\n", ptr->id());
-                    mActiveHandlers.erase(it);
-                }
-                delete ptr;
+        auto deleter = [this](StreamHandler *ptr) {
+            std::shared_lock readLock(mSharedHandlersMtx);
+            const auto it = std::ranges::find_if(mActiveHandlers, [ptr](const auto &v) {
+                if (auto shared = v.second.lock(); !shared || shared.get() == ptr)
+                    return true;
+                return false;
             });
-        handler->mId = toHash(handler.get());
-        std::cout << std::format("Registered stream-handler ID: {}\n", handler->mId);
+            if (it != mActiveHandlers.end()) {
+                readLock.unlock();
+                std::unique_lock writeLock(mSharedHandlersMtx);
+                mActiveHandlers.erase(it);
+            }
+            delete ptr;
+        };
 
-        std::unique_lock<std::mutex> lock(mActiveHandlersMtx);
-        const auto ok = mActiveHandlers.insert({ handler->mId, handler }).second;
-        assert(ok && "Failed to register stream handler");
+        std::shared_ptr<StreamHandler> handler(new StreamHandler(server), deleter);
+        handler->mId = toHash(handler.get());
+        Log(INFO, "Registered unique plugin ID: {}", handler->mId);
+
+        std::unique_lock writeLock(mSharedHandlersMtx);
+        mActiveHandlers.insert({ handler->mId, handler });
+
         return handler;
     }
 
@@ -76,23 +84,27 @@ public:
             return false;
 
         mWorker = std::jthread([this](std::stop_token stoken) {
-            std::cout << "worker initialized\n";
-            // TODO: Integrate exponential backoff
+            Log(DEBUG, "worker thread initialized");
+            // TODO: Integrate exponential backoff ? atomic_flag spin-wait?
             while (!stoken.stop_requested()) {
-                std::unique_lock<std::mutex> lock(mWorkerMtx);
-                mWorkerCV.wait(lock, stoken, [this] { return mWorkerIsReady.load(); });
+                std::unique_lock<std::mutex> waitMtx(mWorkerMtx);
+                mWorkerCV.wait(waitMtx, stoken, [this] { return mWorkerIsReady.load(); });
                 mWorkerIsReady = false;
 
                 api::ServerMessage message;
+
+                std::shared_lock readLock(mSharedHandlersMtx);
                 for (const auto &handler : mActiveHandlers) {
                     auto sharedHandler = handler.second.lock();
+                    if (!sharedHandler)
+                        continue;
                     while (sharedHandler->mServerQueue.pop(&message)) {
-                        sharedHandler->writeMessage(std::move(message));
+                        sharedHandler->broadcast(std::move(message));
                         message = api::ServerMessage();
                     }
                 }
             }
-            std::cout << "worker finished\n";
+            Log(DEBUG, "worker thread finished");
         });
 
         return true;
@@ -109,9 +121,9 @@ public:
 
     bool tryNotifyWorker()
     {
-        if (mWorkerIsReady)
+        bool expected = false;
+        if (!mWorkerIsReady.compare_exchange_strong(expected, true, std::memory_order_acquire))
             return false;
-        mWorkerIsReady = true;
         // TODO: This is not realtime safe as it may involve an OS call...
         // https://timur.audio/using-locks-in-real-time-audio-processing-safely
         mWorkerCV.notify_one();
@@ -135,6 +147,8 @@ protected:
 
         const auto hashId = std::stoull(std::string(metaPlugId->second.data(),
             metaPlugId->second.length()));
+
+        std::shared_lock readLock(mSharedHandlersMtx);
         const auto it = mActiveHandlers.find(hashId);
         if (it == mActiveHandlers.end()) {
             return new Stream(context, nullptr,
@@ -143,6 +157,7 @@ protected:
                     std::format("plugin_id: '{}' not found", hashId),
                 });
         }
+        readLock.unlock();
 
         const auto sharedHandler = it->second.lock();
         auto stream = std::make_unique<Stream>(context, sharedHandler, grpc::Status::OK);
@@ -153,7 +168,7 @@ protected:
 
 private:
     std::unordered_map<uint64_t, std::weak_ptr<StreamHandler>> mActiveHandlers;
-    std::mutex mActiveHandlersMtx;
+    std::shared_mutex mSharedHandlersMtx;
 
     std::jthread mWorker;
     std::mutex mWorkerMtx;
@@ -161,40 +176,61 @@ private:
     std::atomic<bool> mWorkerIsReady{ false };
 };
 
+static std::mutex sUniqueInstanceMtx = {};
+static ServerConfig sServerConfig = {};
+
 class ServerPrivate
 {
 public:
-    bool running = false;
+    explicit ServerPrivate()
+    {
+        grpc::ServerBuilder builder;
+        builder.AddListeningPort(sServerConfig.addressUri, grpc::InsecureServerCredentials(),
+            &selectedPort);
+        builder.RegisterService(&clapService);
+
+        server = builder.BuildAndStart();
+        if (!server) {
+            Log(ERROR, "Server start failed");
+            return;
+        }
+        address = sServerConfig.addressUri.substr(0, sServerConfig.addressUri.find_last_of(':'));
+        Log(INFO, "Server listening on URI: {}, Port: {}", address, selectedPort);
+        running = true;
+    }
+
+    std::atomic<bool> running = false;
     std::string address;
     int selectedPort = -1;
 
     ClapService clapService;
     std::unique_ptr<grpc::Server> server;
-    std::mutex serverMtx;
 };
 
-Server::Server(std::string_view addressUri)
+Server::Server(PrivateTag)
     : dPtr(std::make_unique<ServerPrivate>())
 {
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(addressUri.data(), grpc::InsecureServerCredentials(),
-        &dPtr->selectedPort);
-    builder.RegisterService(&dPtr->clapService);
-
-    dPtr->server = builder.BuildAndStart();
-    if (!dPtr->server) {
-        std::cerr << "Failed to start server\n";
-        return;
-    }
-    dPtr->address = addressUri.substr(0, addressUri.find_last_of(':'));
-    std::cout << std::format("Server listening on URI: {}, Port: {}\n", dPtr->address,
-        dPtr->selectedPort);
-    dPtr->running = true;
 }
 
 Server::~Server()
 {
     stop();
+}
+
+std::shared_ptr<Server> Server::uniqueInstance()
+{
+    std::scoped_lock<std::mutex> lock(sUniqueInstanceMtx);
+    auto sharedInstance = sUniqueInstance.lock();
+    if (!sharedInstance) {
+        sharedInstance = std::make_shared<Server>(PrivateTag{});
+        sUniqueInstance = sharedInstance;
+    }
+    return sharedInstance;
+}
+
+void Server::configure(ServerConfig config)
+{
+    sServerConfig = std::move(config);
 }
 
 bool Server::isRunning() const noexcept
@@ -219,12 +255,13 @@ std::string Server::uri() const
 
 bool Server::stop()
 {
-    if (!dPtr->running)
+    bool expected = false;
+    if (!dPtr->running.compare_exchange_strong(expected, true, std::memory_order_acquire))
         return false;
-    dPtr->clapService.shutdown();
+
+    dPtr->clapService.stopWorker();
     dPtr->server->Shutdown();
-    dPtr->running = false;
-    std::cout << "server stopped\n";
+    Log(DEBUG, "server stopped");
     return true;
 }
 
